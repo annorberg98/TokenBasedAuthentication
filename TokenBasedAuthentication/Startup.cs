@@ -14,6 +14,7 @@ using Microsoft.OpenApi.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Mime;
 using System.Text;
 using System.Threading.Tasks;
 using TokenBasedAuthentication.Authentication;
@@ -34,7 +35,17 @@ namespace TokenBasedAuthentication
         public void ConfigureServices(IServiceCollection services)
         {
 
-            services.AddControllers();
+            services.AddControllers().ConfigureApiBehaviorOptions(options => 
+            {
+                options.InvalidModelStateResponseFactory = context =>
+                {
+                    var result = new BadRequestObjectResult(context.ModelState);
+
+                    result.ContentTypes.Add(MediaTypeNames.Application.Json);
+
+                    return result;
+                };
+            });
             services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(Configuration.GetConnectionString("ConnStr")));
 
             services.AddIdentity<ApplicationUser, IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
@@ -58,6 +69,13 @@ namespace TokenBasedAuthentication
                  };
              });
 
+            services.AddAntiforgery(options => 
+            {
+                options.FormFieldName = "AntiForgeryField";
+                options.HeaderName = "X-CSRF-TOKEN";
+                options.SuppressXFrameOptionsHeader = false;
+            });
+
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "TokenBasedAuthentication", Version = "v1" });
@@ -70,8 +88,13 @@ namespace TokenBasedAuthentication
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+                app.UseExceptionHandler("/error-local-development");
                 app.UseSwagger();
                 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "TokenBasedAuthentication v1"));
+            } else
+            {
+                app.UseExceptionHandler("/error");
+                app.UseHsts();
             }
 
             app.UseHttpsRedirection();

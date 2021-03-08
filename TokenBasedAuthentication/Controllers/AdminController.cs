@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -54,9 +55,23 @@ namespace TokenBasedAuthentication.Controllers
 
         // POST api/<AdminController>/<id>
         [HttpPost]
-        public void Post([FromBody] string value)
+        public async Task<IActionResult> CreateUser([FromBody] RegisterModel model) 
         {
+            var userExists = await userManager.FindByEmailAsync(model.Email);
+            if (userExists != null)
+                return BadRequest("User already exists!");
 
+            ApplicationUser user = new ApplicationUser()
+            {
+                Email = model.Email,
+                SecurityStamp = Guid.NewGuid().ToString(),
+                Role = UserRoles.User
+            };
+            var result = await userManager.CreateAsync(user, model.Password);
+            if (!result.Succeeded)
+                return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "User creation failed! Please check user details and try again." });
+
+            return Ok(new Response { Status = "Success", Message = "User created successfully!" });
         }
 
         // PUT api/<AdminController>/5
